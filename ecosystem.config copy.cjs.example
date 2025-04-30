@@ -1,0 +1,32 @@
+module.exports = {
+  apps: [
+    {
+      name: "news-audio",
+      script: "dist/cron-brief-runner.js",
+      interpreter: "node",
+      node_args:
+        "--experimental-global-webcrypto --experimental-fetch --require ./polyfill.cjs",
+      watch: false,
+      env: {
+        // .env中的环境变量，需要填入
+      },
+    },
+    {
+      name: "py-merge",
+      script: "python_tools/cron_merge_mp3_briefs.py",
+      interpreter: "python_tools/.venv/bin/python",
+      watch: false,
+      env: {
+        // .env中的环境变量，需要填入
+      },
+    },
+    {
+      name: "news-audio-web",
+      script: "npx",
+      args: "serve -s dist -l 3001",
+      cwd: "frontend",
+      interpreter: "none",
+      env: {},
+    },
+  ],
+};

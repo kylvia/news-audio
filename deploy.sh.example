@@ -1,0 +1,151 @@
+#!/bin/bash
+
+# 严格模式，任何命令失败立即退出
+set -e
+
+# 配置区
+SERVER="root@cloud1"        # 服务器地址，如 user@host
+REMOTE_DIR="/root/jk/workSpace/news-audio" # 服务器部署目录
+APP_ALIAS="news-audio"                 # PM2 启动别名
+DEPLOY_TMP_DIR="deploy_tmp"            # 临时部署目录
+
+# 颜色定义
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # 无颜色
+
+# 日志函数
+log_info() {
+  echo -e "${GREEN}[INFO] $1${NC}"
+}
+
+log_warn() {
+  echo -e "${YELLOW}[WARN] $1${NC}"
+}
+
+log_error() {
+  echo -e "${RED}[ERROR] $1${NC}"
+}
+
+# 清理函数，确保即使脚本失败也能清理临时文件
+cleanup() {
+  log_info "清理临时文件..."
+  rm -rf "$DEPLOY_TMP_DIR" deploy_tmp.zip
+}
+
+# 注册退出钩子
+trap cleanup EXIT
+
+# 1. 本地编译 TypeScript 代码
+log_info "[1/5] 本地编译 TypeScript 代码..."
+npm run build
+
+# 1.5 本地构建前端（只上传静态产物）
+log_info "[1.5/5] 本地构建前端..."
+cd frontend
+npm install
+npm run build
+cd ..
+
+# 2. 准备部署包（不包含任何依赖包目录，仅上传前端dist产物）
+log_info "[2/5] 准备部署文件..."
+rm -rf "$DEPLOY_TMP_DIR"
+mkdir -p "$DEPLOY_TMP_DIR"
+
+# 复制必要文件
+cp -r dist package*.json ecosystem.config.cjs python_tools polyfill.cjs "$DEPLOY_TMP_DIR/"
+
+# 只复制前端静态产物
+log_info "复制前端dist产物到部署包..."
+mkdir -p "$DEPLOY_TMP_DIR/frontend"
+test -d frontend/dist && cp -r frontend/dist "$DEPLOY_TMP_DIR/frontend/"
+
+# 确保不包含任何依赖目录
+rm -rf "$DEPLOY_TMP_DIR/node_modules"
+rm -rf "$DEPLOY_TMP_DIR/frontend/node_modules"
+rm -rf "$DEPLOY_TMP_DIR/python_tools/venv"
+rm -rf "$DEPLOY_TMP_DIR/python_tools/.venv"
+
+# 3. 打包部署文件
+cd "$DEPLOY_TMP_DIR"
+zip -r ../deploy_tmp.zip .
+cd ..
+
+# 4. 上传文件到服务器
+log_info "[3/5] 上传文件到服务器..."
+# 确保远程目录存在
+ssh $SERVER "mkdir -p $REMOTE_DIR"
+scp deploy_tmp.zip $SERVER:$REMOTE_DIR/
+
+# 5. 远程部署与启动
+log_info "[4/5] 服务器端解压与依赖安装..."
+ssh $SERVER << EOF
+  set -e
+  cd $REMOTE_DIR
+  
+  # 定义日志函数
+  log_info() {
+    echo -e "\033[0;32m[INFO] \$1\033[0m"
+  }
+  
+  # 不再做任何备份或恢复
+  # 备份当前环境变量文件（如果存在）
+  # if [ -f .env ]; then
+  #   cp .env .env.backup
+  # fi
+
+  # 清理旧文件
+  rm -rf dist frontend python_tools
+  
+  # 解压新文件
+  unzip -o deploy_tmp.zip
+  rm deploy_tmp.zip
+  
+  # 不再恢复环境变量文件
+  # if [ -f .env.backup ]; then
+  #   mv .env.backup .env
+  # fi
+  
+  # 设置环境变量，避免 undici 相关警告
+  export NODE_NO_WARNINGS=1
+  export NODE_OPTIONS="--experimental-global-webcrypto --experimental-fetch"
+  
+  # 强制重新安装 node_modules 以确保使用最新 Node 版本
+  # echo "清理并重新安装 Node.js 依赖..."
+  # rm -rf node_modules package-lock.json
+  # npm install --omit=dev
+  
+  # Python 虚拟环境自动创建并安装依赖
+  echo "设置 Python 虚拟环境..."
+  cd python_tools
+  if [ ! -d ".venv" ]; then
+    python3 -m venv .venv || python3.12 -m venv .venv || echo "创建虚拟环境失败，尝试继续..."
+  fi
+  
+  if [ -d ".venv" ]; then
+    source .venv/bin/activate
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    deactivate
+  else
+    echo "警告：Python 虚拟环境不可用，尝试直接安装依赖..."
+    pip3 install -r requirements.txt || echo "Python 依赖安装失败，请手动检查"
+  fi
+  
+  cd ..
+  
+  # 停止旧服务
+  echo "重启 PM2 服务..."
+  pm2 stop ecosystem.config.cjs || true
+  
+  # 启动新服务
+  pm2 start ecosystem.config.cjs
+  pm2 save
+
+  echo "更新 web 服务..."
+  cd /etc/nginx/conf.d
+  nginx -t & systemctl restart nginx
+EOF
+
+log_info "[5/5] 部署完成，所有服务已通过 PM2 启动"

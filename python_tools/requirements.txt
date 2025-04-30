@@ -1,0 +1,6 @@
+requests>=2.25.1
+python-dateutil>=2.8.1
+pydub>=0.25.1
+tqdm>=4.62.3
+urllib3>=1.26.7
+oss2

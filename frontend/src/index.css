@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', Arial, sans-serif;
+  background-color: #F7F8FA; /* surface */
+  color: #232937; /* textMain */
+}
+
+.bg-surface {
+  background-color: #F7F8FA;
+}
+.bg-card {
+  background-color: #FFFFFF;
+}
+.bg-card-active {
+  background-color: #232937;
+}
+.border-card {
+  border-color: #E6E9EF;
+}
+.text-main {
+  color: #232937;
+}
+.text-sub {
+  color: #A3A7B3;
+}
+.text-accent {
+  color: #3ED598;
+}
+.bg-accent-light {
+  background-color: #E9FAF3;
+}
+.shadow-card {
+  box-shadow: 0 4px 24px 0 rgba(36, 44, 62, 0.08);
+}
+.shadow-card-hover {
+  box-shadow: 0 8px 32px 0 rgba(36, 44, 62, 0.12);
+}
+.btn-accent  {
+  color: #fff;
+  font-weight: bold;
+  border-radius: 9999px;
+  transition: background 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px 0 rgba(62, 213, 152, 0.10);
+}
+.btn-control {
+  background: #3ED598;
+}
+.btn-control:hover {
+  background: #21b87a;
+  box-shadow: 0 4px 16px 0 rgba(62, 213, 152, 0.18);
+}
+.link-accent {
+  color: #3ED598;
+  text-decoration: underline;
+}
+.link-accent:hover {
+  color: #21b87a;
+}
