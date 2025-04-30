@@ -21,8 +21,6 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
   const hasNext = currentIdx < briefs.length - 1;
   const [isPlaying, setIsPlaying] = useState(false);
 
-  console.log(isPlaying);
-
   const handlePrev = () => {
     if (hasPrev) setCurrentIdx(currentIdx - 1);
   };
@@ -88,7 +86,7 @@ const PlayerBar: React.FC<PlayerBarProps> = ({
         onPause={() => setIsPlaying(false)}
       />
       {/* 简报内容区 */}
-      <div className="bg-[#F7F8FA] rounded-xl p-4 mt-2 text-main text-base max-h-80 overflow-auto shadow-inner w-full">
+      <div className="bg-[#F7F8FA] rounded-xl p-4 mt-2 text-main text-base max-h-[252px] overflow-auto shadow-inner w-full">
         {current?.brief || "暂无简报内容"}
         {current?.url && (
           <a

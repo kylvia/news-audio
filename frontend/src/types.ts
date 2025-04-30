@@ -5,7 +5,7 @@ export interface BriefItem {
   publishedAt: string;
   url: string;
   category: string;
-  tags?: string[];
+  country: string;
   audioUrl: string;
   _globalIdx?: number;
 }

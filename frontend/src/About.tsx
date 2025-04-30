@@ -87,12 +87,12 @@ const About = () => (
     <div className="text-base text-sub">
       GitHub:{" "}
       <a
-        href="https://github.com/kylvia"
+        href="https://github.com/kylvia/news-audio"
         target="_blank"
         rel="noopener noreferrer"
         className="link-accent"
       >
-        kylvia
+        news-audio
       </a>
     </div>
   </div>

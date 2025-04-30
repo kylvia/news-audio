@@ -5,7 +5,8 @@ const GNEWS_API_KEY = process.env.GNEWS_API_KEY;
 const GNEWS_URL = "https://gnews.io/api/v4/top-headlines";
 
 const CATEGORIES = ["business", "technology"];
-const COUNTRIES = ["us", "cn"];
+// const COUNTRIES = ["us", "cn"];
+const COUNTRIES = ["us"];
 
 function deduplicateNews(news: NewsItem[]): NewsItem[] {
   const seen = new Set<string>();
@@ -16,7 +17,7 @@ function deduplicateNews(news: NewsItem[]): NewsItem[] {
   });
 }
 
-export async function fetchAllNewsFromGNews(pageSize = 2): Promise<NewsItem[]> {
+export async function fetchAllNewsFromGNews(pageSize = 3): Promise<NewsItem[]> {
   if (!GNEWS_API_KEY) {
     throw new Error("GNEWS_API_KEY is not set in environment variables");
   }
@@ -24,11 +25,14 @@ export async function fetchAllNewsFromGNews(pageSize = 2): Promise<NewsItem[]> {
   // 计算时间窗口（GNews支持from/to参数，格式为yyyy-MM-dd'T'HH:mm:ss'Z'）
   const now = new Date();
   const to = now.toISOString();
-  const from = new Date(now.getTime() - 2 * 60 * 60 * 1000).toISOString();
+  const from = new Date(now.getTime() - 1 * 60 * 60 * 1000).toISOString();
 
   const allNews: NewsItem[] = [];
   for (const category of CATEGORIES) {
     for (const country of COUNTRIES) {
+      if (category === "technology" && country === "cn") {
+        continue;
+      }
       try {
         const params: any = {
           apikey: GNEWS_API_KEY,
@@ -38,6 +42,7 @@ export async function fetchAllNewsFromGNews(pageSize = 2): Promise<NewsItem[]> {
           from,
           to,
           sortby: "publishedAt",
+          expand: "content",
         };
         const response = await axios.get(GNEWS_URL, { params });
         const { articles } = response.data;
@@ -47,11 +52,11 @@ export async function fetchAllNewsFromGNews(pageSize = 2): Promise<NewsItem[]> {
               title: a.title || "",
               content: a.content || "",
               description: a.description || "",
-              source: a.source?.name || a.source || "GNews",
-              publishedAt: a.publishedAt || a.published_at,
+              source: a.source?.name || "",
+              publishedAt: a.publishedAt,
               url: a.url,
               category,
-              tags: ["GNews", category, country],
+              country,
             }))
           );
         }

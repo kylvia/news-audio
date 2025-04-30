@@ -10,6 +10,7 @@ async function main() {
     url: "",
     category: "test",
     source: "system",
+    country: "cn",
   };
   try {
     const result = await synthesizeTTS(brief);

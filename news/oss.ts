@@ -95,7 +95,9 @@ async function cleanupTmpDir(tmpDir: string = "/tmp") {
 export async function cleanupOSSBriefsByBriefsJson(days: number = 7) {
   const now = new Date();
   const expireDate = new Date(now.getTime() - days * 24 * 60 * 60 * 1000);
-  console.log(`[OSS清理] 开始清理 ${days} 天前的数据，截止日期: ${expireDate.toISOString()}`);
+  console.log(
+    `[OSS清理] 开始清理 ${days} 天前的数据，截止日期: ${expireDate.toISOString()}`
+  );
 
   try {
     // 1. 从 OSS 下载 briefs.json
@@ -104,7 +106,7 @@ export async function cleanupOSSBriefsByBriefsJson(days: number = 7) {
     console.log(`[OSS清理] 从 briefs.json 读取到 ${briefs.length} 条简报数据`);
 
     // 2. 筛选出过期的简报
-    const expiredBriefs = briefs.filter(brief => {
+    const expiredBriefs = briefs.filter((brief) => {
       const publishedAt = new Date(brief.publishedAt);
       return publishedAt < expireDate;
     });
@@ -156,8 +158,10 @@ export async function cleanupOSSBriefsByBriefsJson(days: number = 7) {
     }
 
     // 5. 更新 briefs.json，只保留未过期的条目
-    const newBriefs = briefs.filter(brief => !expiredBriefs.includes(brief));
-    console.log(`[OSS清理] 更新后的 briefs.json 包含 ${newBriefs.length} 条简报`);
+    const newBriefs = briefs.filter((brief) => !expiredBriefs.includes(brief));
+    console.log(
+      `[OSS清理] 更新后的 briefs.json 包含 ${newBriefs.length} 条简报`
+    );
 
     // 6. 上传新的 briefs.json
     const tmpPath = path.join("/tmp", "briefs.json");
@@ -166,7 +170,6 @@ export async function cleanupOSSBriefsByBriefsJson(days: number = 7) {
     await fs.unlink(tmpPath);
     await clearTmpDir("/tmp");
     console.log("[OSS清理] 已更新并上传新的 briefs.json");
-
   } catch (err) {
     console.error("[OSS清理] 清理过程发生错误:", err);
     throw err;
@@ -213,6 +216,7 @@ export async function generateAndUploadBriefsSummary() {
       title: brief.title,
       brief: brief.brief,
       category: brief.category,
+      source: brief.source,
       publishedAt: brief.publishedAt,
       audioUrl: brief.audioUrl,
       url: brief.url,
@@ -268,6 +272,7 @@ export async function generateAndUploadBriefsSummaryAppend(
       title: brief.title,
       brief: brief.brief,
       category: brief.category,
+      source: brief.source,
       publishedAt: brief.publishedAt,
       audioUrl: brief.audioUrl,
       url: brief.url,

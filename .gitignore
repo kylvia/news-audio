@@ -51,5 +51,8 @@ python_tools/.venv/
 Thumbs.db
 
 # PM2
-.ecosystem.config.cjs
+ecosystem.config.cjs
+ecosystem.config.js
 deploy.sh
+
+python_tools/xiaoyuzhou

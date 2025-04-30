@@ -1,11 +1,12 @@
 export interface NewsItem {
+  description?: string;
   title: string;
   content: string;
   source: string;
   publishedAt: string; // ISO8601
   url: string;
   category: string;
-  tags?: string[];
+  country: string;
 }
 
 export interface StoryBrief {
@@ -15,7 +16,7 @@ export interface StoryBrief {
   publishedAt: string;
   url: string;
   category: string;
-  tags?: string[];
+  country: string;
 }
 
 export interface TTSResult {

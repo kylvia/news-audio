@@ -8,5 +8,5 @@
     "resolveJsonModule": true,
     "outDir": "dist"
   },
-  "include": ["news/**/*.ts"]
+  "include": ["news/**/*.ts", "*.ts"]
 }

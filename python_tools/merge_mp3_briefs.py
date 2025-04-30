@@ -13,6 +13,7 @@ import time
 import argparse
 import tempfile
 import logging
+import subprocess
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -40,7 +41,7 @@ if OSS_ENDPOINT and OSS_TEXT_BUCKET:
 else:
     DEFAULT_BRIEFS_JSON_URL = "https://oj-news-text-jp.oss-ap-northeast-1.aliyuncs.com/briefs.json"
 DEFAULT_TIMEOUT = 60  # 60秒
-MAX_WORKERS = 4  # 并行下载的最大线程数
+MAX_WORKERS = 2  # 并行下载的最大线程数，适合于2核服务器
 
 # 每日介绍音频URL格式
 OSS_AUDIO_BUCKET = os.environ.get("OSS_AUDIO_BUCKET")
@@ -129,6 +130,11 @@ def parse_arguments():
         "--skip-intro", "-s", 
         action="store_true", 
         help="Skip daily intro audio"
+    )
+    parser.add_argument(
+        "--keep-files", 
+        action="store_true", 
+        help="Keep generated files in audio_files directory after processing"
     )
     return parser.parse_args()
 
@@ -328,16 +334,11 @@ def download_mp3_files(briefs, temp_dir):
     
     start_time = time.time()
     
-    # 使用线程池并行下载
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        futures = []
+    # 对于小数量文件，使用串行下载来减轻服务器压力
+    if len(briefs) <= 3:
+        logger.info("文件数量少，使用串行下载")
         for i, brief in enumerate(briefs):
-            future = executor.submit(download_mp3_file, brief, i, len(briefs), temp_dir)
-            futures.append(future)
-        
-        # 收集结果
-        for future in futures:
-            filepath, file_size, success = future.result()
+            filepath, file_size, success = download_mp3_file(brief, i, len(briefs), temp_dir)
             download_results.append((filepath, file_size, success))
             
             if success:
@@ -345,6 +346,46 @@ def download_mp3_files(briefs, temp_dir):
                 total_size += file_size
             else:
                 fail_count += 1
+                
+            # 每个下载之间添加短暂停顶，避免服务器压力突增
+            time.sleep(0.5)
+    else:
+        # 文件较多时，分批并行下载
+        logger.info(f"文件数量较多 ({len(briefs)})，使用分批并行下载")
+        
+        # 将文件分成多个批次，每批最多 MAX_WORKERS 个文件
+        batch_size = MAX_WORKERS
+        for batch_start in range(0, len(briefs), batch_size):
+            batch_end = min(batch_start + batch_size, len(briefs))
+            batch = briefs[batch_start:batch_end]
+            
+            logger.info(f"处理批次 {batch_start//batch_size + 1}/{(len(briefs) + batch_size - 1)//batch_size}: "
+                       f"文件 {batch_start+1}-{batch_end} / {len(briefs)}")
+            
+            # 并行处理当前批次
+            with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+                futures = []
+                for i, brief in enumerate(batch):
+                    # 计算全局索引
+                    global_idx = batch_start + i
+                    future = executor.submit(download_mp3_file, brief, global_idx, len(briefs), temp_dir)
+                    futures.append(future)
+                
+                # 收集当前批次的结果
+                for future in futures:
+                    filepath, file_size, success = future.result()
+                    download_results.append((filepath, file_size, success))
+                    
+                    if success:
+                        success_count += 1
+                        total_size += file_size
+                    else:
+                        fail_count += 1
+            
+            # 批次之间添加间隔，给服务器休息时间
+            if batch_end < len(briefs):
+                logger.info(f"批次间休息 1 秒")
+                time.sleep(1)
     
     # 过滤出成功下载的文件
     successful_files = [result[0] for result in download_results if result[2]]
@@ -486,7 +527,7 @@ def upload_to_oss(local_file, object_name=None):
     if object_name is None:
         # 默认用文件名+时间戳
         base = os.path.basename(local_file)
-        object_name = f"news-audio/{int(time.time())}_{base}"
+        object_name = f"news-audio/{base}"
 
     auth = oss2.Auth(access_key_id, access_key_secret)
     bucket = oss2.Bucket(auth, endpoint, bucket_name)
@@ -516,8 +557,12 @@ def main():
     # 获取当前时间作为文件名
     now = datetime.now()
     timestamp = now.strftime("%Y%m%d-%H%M")
-    output_file = os.path.join(output_dir, f"news-{timestamp}.mp3")
-    summary_file = os.path.join(output_dir, f"summary-{timestamp}.md")
+    # 强制输出到同级 audio_files 目录
+    audio_files_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_files")
+    if not os.path.exists(audio_files_dir):
+        os.makedirs(audio_files_dir)
+    output_file = os.path.join(audio_files_dir, f"news-{timestamp}.mp3")
+    summary_file = os.path.join(audio_files_dir, f"summary-{timestamp}.md")
     
     # 创建临时目录
     temp_dir = os.path.join(tempfile.gettempdir(), f"news-audio-merge-{int(time.time())}")
@@ -580,6 +625,53 @@ def main():
                 logger.info(f"OSS摘要文件地址：{md_oss_url}")
             else:
                 logger.warning("OSS摘要文件上传失败")
+            # === 新增：自动执行 xiaoyuzhou_uploader.py ===
+            # def upload_to_xiaoyuzhou_subprocess(wrapper_script, max_retries=2, retry_delay=10):
+            #     """使用子进程调用小宇宙上传脚本，带重试机制"""
+            #     for attempt in range(1, max_retries + 1):
+            #         try:
+            #             logger.info(f"开始自动调用小宇宙上传脚本 (尝试 {attempt}/{max_retries})...")
+            #             # 获取脚本所在目录作为工作目录
+            #             script_dir = os.path.dirname(wrapper_script)
+            #             result = subprocess.run(
+            #                 ["bash", wrapper_script], 
+            #                 capture_output=True, 
+            #                 text=True, 
+            #                 check=True,
+            #                 timeout=300,  # 5分钟超时
+            #                 cwd=script_dir  # 设置工作目录为脚本所在目录
+            #             )
+            #             logger.info(f"小宇宙上传成功\n{result.stdout}")
+            #             return True
+            #         except subprocess.TimeoutExpired:
+            #             logger.error(f"小宇宙上传超时 (尝试 {attempt}/{max_retries})")
+            #             if attempt < max_retries:
+            #                 logger.info(f"等待 {retry_delay} 秒后重试...")
+            #                 time.sleep(retry_delay)
+            #         except subprocess.CalledProcessError as e:
+            #             logger.error(f"小宇宙上传失败，返回码：{e.returncode}\nstdout: {e.stdout}\nstderr: {e.stderr}")
+            #             # 检查是否是网络超时问题
+            #             if e.stderr and ("timed out" in e.stderr or "TimeoutError" in e.stderr) and attempt < max_retries:
+            #                 logger.info(f"检测到超时错误，等待 {retry_delay} 秒后重试...")
+            #                 time.sleep(retry_delay)
+            #             else:
+            #                 return False
+            #         except Exception as e:
+            #             logger.error(f"调用小宇宙上传脚本时发生未知错误: {str(e)}")
+            #             return False
+                
+            #     logger.error(f"小宇宙上传失败，已尝试 {max_retries} 次")
+            #     return False
+            
+            # # 使用包装脚本来确保在虚拟环境中运行
+            # wrapper_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "xiaoyuzhou", "run_xiaoyuzhou_uploader.sh")
+            # upload_result = upload_to_xiaoyuzhou_subprocess(wrapper_script)
+            
+            # if upload_result:
+            #     logger.info("小宇宙上传完成")
+            # else:
+            #     logger.warning("小宇宙上传失败，请检查日志或手动上传")
+
         else:
             logger.error("处理失败")
     
@@ -593,6 +685,82 @@ def main():
                 os.rmdir(temp_dir)
             except Exception as e:
                 logger.warning(f"清理临时目录时出错: {str(e)}")
+        
+        # 如果成功上传到OSS并且没有指定 --keep-files 参数，等待十分钟后清空 audio_files 目录
+        if 'oss_url' in locals() and oss_url and not args.keep_files:
+            try:
+                # 计算等待时间
+                wait_minutes = 10
+                logger.info(f"将在 {wait_minutes} 分钟后清空 audio_files 目录")
+                
+                # 创建一个定时器文件，记录当前时间和需要清空的文件
+                timer_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_files", ".cleanup_timer")
+                cleanup_info = {
+                    "timestamp": time.time(),
+                    "wait_minutes": wait_minutes,
+                    "files_to_clean": []
+                }
+                
+                # 记录需要清空的文件
+                audio_files_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_files")
+                if os.path.exists(audio_files_dir):
+                    for f in os.listdir(audio_files_dir):
+                        if f.endswith('.mp3') or f.endswith('.md'):
+                            cleanup_info["files_to_clean"].append(f)
+                
+                # 写入定时器文件
+                with open(timer_file, 'w') as f:
+                    json.dump(cleanup_info, f)
+                
+                logger.info(f"已设置清空定时器，将在 {wait_minutes} 分钟后清空 {len(cleanup_info['files_to_clean'])} 个文件")
+                
+                # 创建一个子进程来处理定时清空
+                cleanup_script = f'''
+#!/usr/bin/env python3
+import os
+import json
+import time
+import sys
+
+timer_file = "{timer_file}"
+
+# 等待指定的时间
+if os.path.exists(timer_file):
+    with open(timer_file, 'r') as f:
+        cleanup_info = json.load(f)
+    
+    # 计算需要等待的时间
+    wait_seconds = cleanup_info["wait_minutes"] * 60 - (time.time() - cleanup_info["timestamp"])
+    if wait_seconds > 0:
+        time.sleep(wait_seconds)
+    
+    # 清空文件
+    audio_files_dir = "{audio_files_dir}"
+    removed_count = 0
+    for f in cleanup_info["files_to_clean"]:
+        file_path = os.path.join(audio_files_dir, f)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            removed_count += 1
+    
+    # 删除定时器文件
+    os.remove(timer_file)
+    print(f"\u5df2清空 audio_files 目录下 {{removed_count}} 个文件")
+'''
+                
+                # 创建临时清空脚本
+                cleanup_script_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_files", ".cleanup_script.py")
+                with open(cleanup_script_path, 'w') as f:
+                    f.write(cleanup_script)
+                
+                # 在后台运行清空脚本
+                subprocess.Popen([sys.executable, cleanup_script_path], 
+                                 stdout=subprocess.DEVNULL, 
+                                 stderr=subprocess.DEVNULL, 
+                                 start_new_session=True)
+                
+            except Exception as e:
+                logger.warning(f"设置定时清空时出错: {str(e)}")
 
 
 if __name__ == "__main__":

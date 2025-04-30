@@ -4,3 +4,5 @@ pydub>=0.25.1
 tqdm>=4.62.3
 urllib3>=1.26.7
 oss2
+selenium>=4.0.0
+undetected-chromedriver

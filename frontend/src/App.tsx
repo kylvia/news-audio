@@ -42,15 +42,22 @@ function App() {
     audioRef.current?.play();
   };
 
-  // 判断是否为今日
+  // 判断是否为今日 - 考虑时区问题
   function isToday(dateStr: string) {
+    // 解析ISO格式的UTC时间
     const date = new Date(dateStr);
     const now = new Date();
-    return (
-      date.getFullYear() === now.getFullYear() &&
-      date.getMonth() === now.getMonth() &&
-      date.getDate() === now.getDate()
-    );
+
+    // 获取本地日期部分（年月日）
+    const dateLocal = new Date(date.getTime());
+    const nowLocal = new Date(now.getTime());
+
+    // 将时间都设置为当天的零点，只比较日期部分
+    dateLocal.setHours(0, 0, 0, 0);
+    nowLocal.setHours(0, 0, 0, 0);
+
+    // 直接比较时间戳是否相等
+    return dateLocal.getTime() === nowLocal.getTime();
   }
 
   // 按日期分组
@@ -91,8 +98,6 @@ function App() {
       </div>
     );
   }
-  console.log(currentIdx, todayBriefsLen);
-
   return (
     <div className="min-h-screen bg-#F7F8FA flex flex-col font-sans">
       <header className="flex items-center justify-between px-4 sm:px-12 py-6 bg-#F7F8FA">
@@ -159,7 +164,7 @@ function App() {
               <BriefList
                 briefs={todayBriefs.map((brief, i) => ({
                   ...brief,
-                  publishedAt: formatDateToYYYYMMDD(brief.publishedAt),
+                  publishedAt: brief.publishedAt, // 保留原始ISO日期字符串，不格式化
                   _globalIdx: i,
                 }))}
                 currentIdx={currentIdx}
@@ -178,7 +183,7 @@ function App() {
             <BriefList
               briefs={otherBriefs.map((brief, i) => ({
                 ...brief,
-                publishedAt: formatDateToYYYYMMDD(brief.publishedAt),
+                publishedAt: brief.publishedAt, // 保留原始ISO日期字符串，不格式化
                 _globalIdx: i + todayBriefs.length,
               }))}
               currentIdx={currentIdx}

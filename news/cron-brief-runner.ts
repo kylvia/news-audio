@@ -38,6 +38,7 @@ async function runDailyIntroTask(tag: string) {
       url: "",
       category: "intro",
       source: "system",
+      country: "cn",
     });
     const dateStr = `${year}${month.toString().padStart(2, "0")}${day
       .toString()

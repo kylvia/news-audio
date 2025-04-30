@@ -1,8 +1,21 @@
 # News Audio# 摸鱼经济学 - AI新闻音频简报系统
 
-一个利用 AI 技术自动将新闻转换为音频简报的系统。用户可以在通勤、运动等碎片时间里通过音频了解最新新闻。项目利用gnews.io API获取新闻，DeepSeek生成简报，MinimaxTTS转换语音，内容存储于阿里云OSS并通过网站和小宇宙分发。从爬虫到API，从百度TTS到Minimax，历经多次技术迭代，最终打造出一个让用户能在碎片时间轻松获取财经资讯的自动化平台。
-项目已经上线，网站地址是http://eco.moyuba.top
-同时内容也在小宇宙平台进行音频分发，播客地址是 https://www.xiaoyuzhoufm.com/podcast/680b50ea1168df730183ae30
+### 项目简介
+
+摸鱼经济学是一个利用 AI 技术自动将新闻转换为音频简报的系统。用户可以在通勤、运动等碎片时间里通过音频了解最新新闻。
+
+### 技术架构
+
+- **新闻获取**: 使用 GNews.io API 获取新闻
+- **内容生成**: 使用 DeepSeek API 生成高质量新闻简报
+- **语音合成**: 使用 Minimax TTS 转换为语音
+- **内容存储**: 阿里云 OSS
+- **内容分发**: 网站和小宇宙播客平台
+
+### 项目状态
+
+- **网站地址**: https://eco.moyuba.top
+- **播客地址**: https://www.xiaoyuzhoufm.com/podcast/680b50ea1168df730183ae30
 
 ## 功能特点
 
@@ -110,7 +123,7 @@ npx ts-node-esm news/tts_test.ts
 
 ```bash
 cd ./python_tools 
-source venv/bin/activate
+source .venv/bin/activate
 python merge_mp3_briefs.py --hours 10
 ```
 

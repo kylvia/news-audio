@@ -24,7 +24,7 @@ export async function synthesizeTTS(brief: StoryBrief): Promise<TTSResult> {
   const filePath = path.join(TMP_DIR, `${briefId}.mp3`);
 
   // 使用安全文本处理
-  const text = safeText(brief.brief, 512);
+  const text = safeText(brief.brief, 5000);
 
   // MiniMax T2A V2参数，按需补充 group_id、model、sample_rate
   const payload: any = {

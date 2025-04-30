@@ -6,6 +6,10 @@ import subprocess
 import os
 
 def run_once_and_schedule():
+    # 不再启动时立即合并一次，只设置定时任务
+    print(f"[定时任务] 启动定时任务: {datetime.now(timezone(timedelta(hours=8))).strftime('%Y-%m-%d %H:%M:%S')}")
+
+
     # 每天两次：06:50 和 16:50（北京时间）
     target_hours_minutes = [(6, 50), (16, 50)]
     tz_beijing = timezone(timedelta(hours=8))
