@@ -30,6 +30,8 @@ lib64/
 parts/
 sdist/
 var/
+python_tools/venv/
+python_tools/.venv/
 *.egg-info/
 .installed.cfg
 *.egg
